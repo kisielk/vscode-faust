@@ -193,8 +193,9 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "compile": "tsc -p ./ && npm run copy-resources",
     "watch": "tsc -watch -p ./",
+    "copy-resources": "cp src/webview-template.html out/",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test"
