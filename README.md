@@ -60,7 +60,6 @@ Create a `.faustcfg.json` file in your workspace root:
 - **Faust: Create Config File** - Create a default `.faustcfg.json` file
 - **Faust: Compile Current File (WebAssembly)** - Compile the current DSP file to WebAssembly
 - **Faust: Compile to WebAssembly** - Compile the current DSP file to WebAssembly (.wasm)
-- **Faust: Compile to JavaScript (Browser Only)** - Information about JavaScript compilation limitations
 - **Faust: Launch WebAssembly in Browser** - Launch the compiled WebAssembly in a VS Code webview for interactive testing
 
 ## Keyboard Shortcuts
@@ -88,8 +87,6 @@ The extension uses the **faustwasm** library to compile Faust DSP code directly 
 
 - **Faust: Compile Current File (WebAssembly)** - Compiles to WebAssembly (.wasm) and generates metadata JSON
 - **Faust: Compile to WebAssembly** - Generates .wasm module and metadata JSON
-
-**Note:** JavaScript compilation (AudioWorklet) requires a browser environment and is not currently supported in the VS Code/Node.js context. The extension focuses on WebAssembly compilation which works perfectly in VS Code.
 
 ### Interactive WebAssembly Testing
 

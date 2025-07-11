@@ -32,7 +32,6 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('faust.createConfigFile', createConfigFile),
     vscode.commands.registerCommand('faust.compileCurrentFile', compileCurrentFile),
     vscode.commands.registerCommand('faust.compileToWasm', compileToWasm),
-    vscode.commands.registerCommand('faust.compileToJavaScript', compileToJavaScript),
     vscode.commands.registerCommand('faust.launchWebAssembly', launchWebAssembly),
     outputChannel
   );
@@ -336,9 +335,6 @@ async function compileCurrentFile(): Promise<void> {
       outputChannel.appendLine(`✗ Error compiling to WebAssembly: ${error}`);
     }
     
-    // Note: JavaScript compilation (AudioWorklet) requires a browser context
-    // For now, we focus on WebAssembly compilation which works in Node.js
-    
     vscode.window.showInformationMessage(`Faust compilation completed for ${fileName}`);
     
   } catch (error) {
@@ -407,46 +403,6 @@ async function compileToWasm(): Promise<void> {
   } catch (error) {
     outputChannel.appendLine(`WebAssembly compilation error: ${error}`);
     vscode.window.showErrorMessage(`WebAssembly compilation failed: ${error}`);
-  }
-}
-
-async function compileToJavaScript(): Promise<void> {
-  const editor = vscode.window.activeTextEditor;
-  if (!editor) {
-    vscode.window.showErrorMessage('No active editor found');
-    return;
-  }
-
-  const document = editor.document;
-  if (!document.fileName.endsWith('.dsp')) {
-    vscode.window.showErrorMessage('Current file is not a Faust DSP file (.dsp)');
-    return;
-  }
-
-  outputChannel.show();
-  outputChannel.appendLine(`Compiling ${document.fileName} to JavaScript...`);
-
-  try {
-    await initializeFaustModule();
-    
-    const faustCode = document.getText();
-    const fileName = path.basename(document.fileName, '.dsp');
-    const fileDir = path.dirname(document.fileName);
-    const outputDir = path.join(fileDir, 'build');
-    
-    // Create output directory
-    await fs.promises.mkdir(outputDir, { recursive: true });
-    
-    // Note: JavaScript (AudioWorklet) compilation requires a browser context
-    // For now, this command focuses on WebAssembly compilation
-    outputChannel.appendLine('Note: JavaScript compilation requires a browser context.');
-    outputChannel.appendLine('Use "Faust: Compile to WebAssembly" for WASM compilation.');
-    
-    vscode.window.showInformationMessage('JavaScript compilation requires a browser context. Use WebAssembly compilation instead.');
-    
-  } catch (error) {
-    outputChannel.appendLine(`JavaScript compilation error: ${error}`);
-    vscode.window.showErrorMessage(`JavaScript compilation failed: ${error}`);
   }
 }
 
