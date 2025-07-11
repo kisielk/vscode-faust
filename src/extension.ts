@@ -519,10 +519,7 @@ function generateFaustWebAssemblyHTML(fileName: string, wasmData: Buffer, metada
   // Convert WASM data to base64 for embedding
   const wasmBase64 = wasmData.toString('base64');
   
-  // Extract UI controls from metadata
-  const uiControls = metadata.ui[0]?.items || [];
-  
-  // Generate HTML with embedded WebAssembly
+  // Generate HTML with faust-ui integration
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -532,44 +529,42 @@ function generateFaustWebAssemblyHTML(fileName: string, wasmData: Buffer, metada
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 20px;
+            margin: 0;
+            padding: 20px;
             background-color: var(--vscode-editor-background);
             color: var(--vscode-editor-foreground);
+            overflow: hidden;
         }
         .header {
             margin-bottom: 20px;
             padding: 15px;
             background-color: var(--vscode-editor-inactiveSelectionBackground);
             border-radius: 8px;
+            border: 1px solid var(--vscode-input-border);
         }
-        .controls {
+        .main-container {
+            display: flex;
+            gap: 20px;
+            height: calc(100vh - 200px);
+        }
+        .controls-panel {
+            flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        .control-group {
-            display: flex;
-            align-items: center;
             gap: 10px;
         }
-        .control-group label {
-            min-width: 120px;
-            font-weight: 500;
+        .audio-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
         }
-        .control-group input {
+        .faust-ui-container {
             flex: 1;
-            max-width: 300px;
-        }
-        .control-group .value {
-            min-width: 60px;
-            text-align: right;
-            font-family: monospace;
-        }
-        .buttons {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 8px;
+            padding: 20px;
+            background-color: var(--vscode-editor-background);
+            overflow: auto;
         }
         button {
             padding: 10px 20px;
@@ -589,17 +584,60 @@ function generateFaustWebAssemblyHTML(fileName: string, wasmData: Buffer, metada
         }
         .status {
             padding: 10px;
-            margin-top: 10px;
             border-radius: 4px;
             font-family: monospace;
+            font-size: 12px;
+            margin-top: 10px;
         }
-        .status.success { background-color: var(--vscode-inputValidation-infoBackground); }
-        .status.error { background-color: var(--vscode-inputValidation-errorBackground); }
-        .info {
-            margin-top: 20px;
-            padding: 10px;
+        .status.success { 
+            background-color: var(--vscode-inputValidation-infoBackground);
+            color: var(--vscode-inputValidation-infoForeground);
+        }
+        .status.error { 
+            background-color: var(--vscode-inputValidation-errorBackground);
+            color: var(--vscode-inputValidation-errorForeground);
+        }
+        .info-panel {
+            flex: 0 0 300px;
+            padding: 15px;
             background-color: var(--vscode-textBlockQuote-background);
-            border-left: 4px solid var(--vscode-textBlockQuote-border);
+            border: 1px solid var(--vscode-textBlockQuote-border);
+            border-radius: 8px;
+            overflow-y: auto;
+        }
+        .info-panel h3 {
+            margin-top: 0;
+            color: var(--vscode-textPreformat-foreground);
+        }
+        .info-panel p {
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .info-panel strong {
+            color: var(--vscode-textPreformat-foreground);
+        }
+        
+        /* Faust UI Integration Styles */
+        .faust-ui-root {
+            width: 100%;
+            height: 100%;
+            min-height: 400px;
+        }
+        
+        /* Override faust-ui styles to match VS Code theme */
+        .faust-ui-component {
+            color: var(--vscode-editor-foreground) !important;
+        }
+        
+        .faust-ui-component input,
+        .faust-ui-component select {
+            background-color: var(--vscode-input-background) !important;
+            color: var(--vscode-input-foreground) !important;
+            border: 1px solid var(--vscode-input-border) !important;
+        }
+        
+        .faust-ui-component-label {
+            color: var(--vscode-editor-foreground) !important;
         }
     </style>
 </head>
@@ -610,41 +648,40 @@ function generateFaustWebAssemblyHTML(fileName: string, wasmData: Buffer, metada
         <p>Inputs: ${metadata.inputs}, Outputs: ${metadata.outputs}</p>
     </div>
 
-    <div class="buttons">
-        <button id="startBtn">Start Audio</button>
-        <button id="stopBtn" disabled>Stop Audio</button>
-    </div>
-
-    <div class="controls">
-        ${uiControls.map((control: any) => `
-            <div class="control-group">
-                <label>${control.label}:</label>
-                <input 
-                    type="range" 
-                    id="${control.address}"
-                    min="${control.min}" 
-                    max="${control.max}" 
-                    step="${control.step}" 
-                    value="${control.init}"
-                    data-address="${control.address}"
-                >
-                <span class="value" id="${control.address}_value">${control.init}</span>
+    <div class="main-container">
+        <div class="controls-panel">
+            <div class="audio-controls">
+                <button id="startBtn">Start Audio</button>
+                <button id="stopBtn" disabled>Stop Audio</button>
             </div>
-        `).join('')}
+            
+            <div class="faust-ui-container">
+                <div id="faust-ui-root" class="faust-ui-root"></div>
+            </div>
+            
+            <div class="status" id="status">Ready to start</div>
+        </div>
+
+        <div class="info-panel">
+            <h3>DSP Information</h3>
+            <p><strong>Compilation options:</strong> ${metadata.compile_options}</p>
+            <p><strong>Library list:</strong> ${metadata.library_list.join(', ')}</p>
+            <p><strong>Sample rate:</strong> Variable (set by Web Audio API)</p>
+            <p><strong>UI Elements:</strong> ${metadata.ui[0]?.items?.length || 0} controls</p>
+        </div>
     </div>
 
-    <div class="status" id="status">Ready to start</div>
-
-    <div class="info">
-        <h3>DSP Information</h3>
-        <p><strong>Compilation options:</strong> ${metadata.compile_options}</p>
-        <p><strong>Library list:</strong> ${metadata.library_list.join(', ')}</p>
-    </div>
-
+    <!-- Load faust-ui from CDN -->
+    <script src="https://unpkg.com/@shren/faust-ui@latest/dist/index.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@shren/faust-ui@latest/dist/index.css">
+    
     <script>
         let audioContext;
         let faustProcessor;
+        let faustNode;
+        let faustUI;
         let isRunning = false;
+        let dspInstance;
 
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
@@ -658,6 +695,29 @@ function generateFaustWebAssemblyHTML(fileName: string, wasmData: Buffer, metada
                 bytes[i] = binaryString.charCodeAt(i);
             }
             return bytes.buffer;
+        }
+
+        // Initialize FaustUI
+        function initFaustUI() {
+            const uiRoot = document.getElementById('faust-ui-root');
+            
+            // Create FaustUI instance
+            faustUI = new FaustUI.FaustUI({
+                root: uiRoot,
+                ui: ${JSON.stringify(metadata.ui[0]?.items || [])},
+                listenWindowResize: true,
+                listenWindowMessage: false
+            });
+            
+            // Override paramChangeByUI to handle parameter changes
+            faustUI.paramChangeByUI = (path, value) => {
+                console.log('Parameter change:', path, value);
+                if (dspInstance && dspInstance.setParamValue) {
+                    dspInstance.setParamValue(path, value);
+                }
+            };
+            
+            statusDiv.textContent = 'UI initialized';
         }
 
         // Initialize audio context and load WASM
@@ -692,14 +752,16 @@ function generateFaustWebAssemblyHTML(fileName: string, wasmData: Buffer, metada
                     }
                 });
 
-                // Create a simple processor using ScriptProcessorNode (for compatibility)
-                const bufferSize = 1024;
-                faustProcessor = audioContext.createScriptProcessor(bufferSize, ${metadata.inputs}, ${metadata.outputs});
-                
-                const dspInstance = wasmInstance.exports;
+                dspInstance = wasmInstance.exports;
                 
                 // Initialize the DSP
-                dspInstance.init(audioContext.sampleRate);
+                if (dspInstance.init) {
+                    dspInstance.init(audioContext.sampleRate);
+                }
+                
+                // Create audio processor using ScriptProcessorNode
+                const bufferSize = 1024;
+                faustProcessor = audioContext.createScriptProcessor(bufferSize, ${metadata.inputs}, ${metadata.outputs});
                 
                 // Set up audio processing
                 faustProcessor.onaudioprocess = function(event) {
@@ -717,12 +779,14 @@ function generateFaustWebAssemblyHTML(fileName: string, wasmData: Buffer, metada
                         outputs.push(outputBuffer.getChannelData(i));
                     }
                     
-                    // Process audio (simplified - would need proper memory management)
+                    // Process audio
                     try {
-                        // This is a simplified version - proper implementation would need
-                        // to handle memory allocation and proper DSP compute calls
-                        if (outputs.length > 0) {
-                            // Generate simple test tone for demonstration
+                        if (dspInstance.compute && outputs.length > 0) {
+                            // This is a simplified implementation
+                            // A full implementation would need proper memory management
+                            // and correct mapping of input/output buffers to WASM memory
+                            
+                            // For now, generate a simple test tone
                             const frequency = 440;
                             for (let i = 0; i < outputs[0].length; i++) {
                                 outputs[0][i] = Math.sin(2 * Math.PI * frequency * (audioContext.currentTime + i / audioContext.sampleRate)) * 0.1;
@@ -732,20 +796,6 @@ function generateFaustWebAssemblyHTML(fileName: string, wasmData: Buffer, metada
                         console.error('Audio processing error:', e);
                     }
                 };
-                
-                // Set up UI controls
-                ${uiControls.map((control: any) => `
-                    const control_${control.address.replace(/[^a-zA-Z0-9]/g, '_')} = document.getElementById('${control.address}');
-                    const value_${control.address.replace(/[^a-zA-Z0-9]/g, '_')} = document.getElementById('${control.address}_value');
-                    
-                    control_${control.address.replace(/[^a-zA-Z0-9]/g, '_')}.addEventListener('input', function() {
-                        value_${control.address.replace(/[^a-zA-Z0-9]/g, '_')}.textContent = this.value;
-                        // Update DSP parameter (simplified)
-                        if (dspInstance.setParamValue) {
-                            dspInstance.setParamValue('${control.address}', parseFloat(this.value));
-                        }
-                    });
-                `).join('')}
                 
                 statusDiv.textContent = 'Audio system ready';
                 statusDiv.className = 'status success';
@@ -767,7 +817,10 @@ function generateFaustWebAssemblyHTML(fileName: string, wasmData: Buffer, metada
                 await audioContext.resume();
             }
             
-            faustProcessor.connect(audioContext.destination);
+            if (faustProcessor) {
+                faustProcessor.connect(audioContext.destination);
+            }
+            
             isRunning = true;
             startBtn.disabled = true;
             stopBtn.disabled = false;
@@ -793,7 +846,23 @@ function generateFaustWebAssemblyHTML(fileName: string, wasmData: Buffer, metada
 
         // Initialize on load
         window.addEventListener('load', () => {
-            statusDiv.textContent = 'Click "Start Audio" to begin';
+            // Wait for faust-ui to be available
+            function tryInitUI(attempts = 0) {
+                if (typeof FaustUI !== 'undefined' && FaustUI.FaustUI) {
+                    initFaustUI();
+                    statusDiv.textContent = 'Click "Start Audio" to begin';
+                } else if (attempts < 10) {
+                    statusDiv.textContent = \`Loading UI components... (\${attempts + 1}/10)\`;
+                    statusDiv.className = 'status';
+                    setTimeout(() => tryInitUI(attempts + 1), 500);
+                } else {
+                    statusDiv.textContent = 'Error: Failed to load faust-ui library. Check internet connection.';
+                    statusDiv.className = 'status error';
+                    console.error('Failed to load faust-ui after 10 attempts');
+                }
+            }
+            
+            tryInitUI();
         });
     </script>
 </body>

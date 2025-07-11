@@ -1,7 +1,7 @@
 {
   "name": "vscode-faust",
   "displayName": "Faust Language Support",
-  "description": "Language support for Faust (Functional Audio Stream) - syntax highlighting, LSP integration, and code snippets",
+  "description": "Language support for Faust (Functional Audio Stream) - syntax highlighting, LSP integration, WebAssembly compilation, and interactive UI testing with faust-ui",
   "version": "0.1.0",
   "publisher": "your-publisher-name",
   "author": "Your Name",
@@ -223,6 +223,7 @@
   },
   "dependencies": {
     "@grame/faustwasm": "^0.11.0",
+    "@shren/faust-ui": "^1.1.19",
     "glob": "^11.0.0",
     "vscode-languageclient": "^9.0.1",
     "which": "^3.0.0"

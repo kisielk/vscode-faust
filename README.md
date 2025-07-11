@@ -12,7 +12,8 @@ A VS Code extension for [Faust](https://faust.grame.fr/) (Functional AUdio STrea
 - **Configuration Management**: Automatic handling of Faust configuration files
 - **Multiple File Support**: Support for `.dsp` and `.lib` files
 - **WebAssembly Compilation**: Compile Faust code to WebAssembly using faustwasm
-- **JavaScript Compilation**: Compile Faust code to JavaScript using faustwasm
+- **Interactive UI Testing**: Launch compiled WebAssembly with professional faust-ui components
+- **Real-time Audio Processing**: Test your DSP with interactive controls in VS Code webview
 - **Interactive WebAssembly Testing**: Launch compiled WebAssembly in a VS Code webview for real-time audio testing with parameter controls
 
 ## Installation
@@ -26,6 +27,7 @@ A VS Code extension for [Faust](https://faust.grame.fr/) (Functional AUdio STrea
 - **faustlsp**: The Faust Language Server Protocol implementation (optional, for LSP features)
 - **Faust compiler**: For full functionality, install the Faust compiler (optional, for traditional compilation)
 - **faustwasm**: WebAssembly version of the Faust compiler (included with the extension)
+- **Internet connection**: Required for loading faust-ui components in the webview (loaded from CDN)
 
 ## Configuration
 
@@ -91,22 +93,34 @@ The extension uses the **faustwasm** library to compile Faust DSP code directly 
 
 ### Interactive WebAssembly Testing
 
-The extension provides an innovative feature to test your compiled DSP directly within VS Code:
+The extension provides an innovative feature to test your compiled DSP directly within VS Code using the professional **faust-ui** library:
 
 1. **Compile** your DSP file to WebAssembly using the compile command
 2. **Launch** the WebAssembly in a VS Code webview using the "Launch WebAssembly in Browser" command
 3. **Test** your DSP with:
    - Real-time audio processing
-   - Interactive parameter controls (automatically generated from your DSP UI elements)
+   - Professional UI controls (automatically generated from your DSP UI elements using faust-ui)
+   - Native Faust UI components (sliders, knobs, buttons, bargraphs, etc.)
    - Visual feedback with compilation information
    - Start/stop audio controls
 
 The webview provides a complete audio testing environment with:
-- Audio context management
-- Real-time parameter control via sliders
-- Visual feedback for all DSP parameters
-- Compilation metadata display
-- Error handling and status reporting
+- **faust-ui Integration**: Professional, native-looking Faust UI components
+- **Automatic Layout**: Intelligent grid-based layout system
+- **Real-time Parameters**: Interactive parameter control with proper scaling and units
+- **VS Code Theme Integration**: Components automatically match your VS Code theme
+- **Audio Context Management**: Proper Web Audio API integration
+- **Error Handling**: Comprehensive error reporting and status feedback
+
+**Supported UI Elements:**
+- `hslider` / `vslider` - Horizontal and vertical sliders
+- `knob` - Rotary controls
+- `button` - Momentary and toggle buttons
+- `checkbox` - Boolean controls
+- `nentry` - Numeric entry fields
+- `hbargraph` / `vbargraph` - Level meters and displays
+- `menu` / `radio` - Selection controls
+- `vgroup` / `hgroup` / `tgroup` - Layout containers
 
 **Access the launch feature:**
 - Right-click in a `.dsp` file → "Launch WebAssembly in Browser"
