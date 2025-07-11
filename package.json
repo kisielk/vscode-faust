@@ -1,17 +1,35 @@
 {
   "name": "vscode-faust",
-  "displayName": "Faust",
-  "description": "",
-  "version": "0.0.1",
+  "displayName": "Faust Language Support",
+  "description": "Language support for Faust (Functional Audio Stream) - syntax highlighting, LSP integration, and code snippets",
+  "version": "0.1.0",
+  "publisher": "your-publisher-name",
+  "author": "Your Name",
+  "license": "MIT",
+  "homepage": "https://github.com/your-username/vscode-faust",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/vscode-faust.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/vscode-faust/issues"
+  },
+  "keywords": [
+    "faust",
+    "audio",
+    "dsp",
+    "functional",
+    "programming",
+    "music",
+    "synthesis"
+  ],
   "engines": {
     "vscode": "^1.75.0"
   },
   "categories": [
     "Programming Languages",
+    "Snippets",
     "Other"
-  ],
-  "activationEvents": [
-    "onLanguage:faust"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -26,7 +44,11 @@
           ".dsp",
           ".lib"
         ],
-        "configuration": "./language-configuration.json"
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/faust-light.svg",
+          "dark": "./icons/faust-dark.svg"
+        }
       }
     ],
     "grammars": [
@@ -34,6 +56,44 @@
         "language": "faust",
         "scopeName": "source.faust",
         "path": "./syntaxes/faust.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "faust",
+        "path": "./snippets/faust.json"
+      }
+    ],
+    "configuration": {
+      "title": "Faust",
+      "properties": {
+        "faust.lsp.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable Faust Language Server Protocol support"
+        },
+        "faust.lsp.executable": {
+          "type": "string",
+          "default": "faustlsp",
+          "description": "Path to the faustlsp executable"
+        },
+        "faust.configFile": {
+          "type": "string",
+          "default": ".faustcfg.json",
+          "description": "Name of the Faust configuration file"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "faust.restartLsp",
+        "title": "Restart Faust LSP",
+        "category": "Faust"
+      },
+      {
+        "command": "faust.createConfigFile",
+        "title": "Create Faust Config File",
+        "category": "Faust"
       }
     ]
   },

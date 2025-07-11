@@ -42,11 +42,19 @@
 	  },
 	  {
 		"name": "constant.symbol.faust",
-		"match": "\\b(mem|prefix|int|float|rdtable|rwtable|select2|select3|ffunction|fconstant|fvariable|button|checkbox|vslider|hslider|nentry|vgroup|hgroup|tgroup|vbargraph|hbargraph|attach|acos|asin|atan|atan2|cos|sin|tan|exp|log|log10|pow|sqrt|abs|min|max|fmod|remainder|floor|ceil|rint)\\b"
+		"match": "\\b(mem|prefix|int|float|rdtable|rwtable|select2|select3|select4|select5|ffunction|fconstant|fvariable|button|checkbox|vslider|hslider|nentry|vgroup|hgroup|tgroup|vbargraph|hbargraph|attach|soundfile)\\b"
+	  },
+	  {
+		"name": "constant.symbol.math.faust",
+		"match": "\\b(acos|asin|atan|atan2|cos|sin|tan|exp|log|log10|pow|sqrt|abs|min|max|fmod|remainder|floor|ceil|rint|fabs|copysign|ldexp|scalb|log1p|logb|ilogb|log2|expm1|acosh|asinh|atanh|cosh|sinh|tanh|isnan|isinf|isfinite|isnormal|signbit|round|trunc|nearbyint|rint)\\b"
+	  },
+	  {
+		"name": "constant.symbol.library.faust",
+		"match": "\\b(ba|an|co|de|dm|dx|ef|en|fi|ho|it|ma|mi|no|os|ov|pf|ph|pm|qu|re|ro|sf|si|sp|sy|ve|wa)\\."
 	  },
 	  {
 		"name": "keyword.control.faust",
-		"match": "\\b(import|component|declare|library|environment|with|letrec|process|seq|par|sum|prod|inputs|outputs)\\b"
+		"match": "\\b(import|component|declare|library|environment|with|letrec|process|seq|par|sum|prod|inputs|outputs|case|waveform|route|enable|control)\\b"
 	  },
 	  {
 		"name": "keyword.algebra.faust",

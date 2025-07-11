@@ -1,0 +1,160 @@
+{
+  "Process Block": {
+    "prefix": "process",
+    "body": [
+      "process = $1;"
+    ],
+    "description": "Basic process block"
+  },
+  "Import Statement": {
+    "prefix": "import",
+    "body": [
+      "import(\"$1\");"
+    ],
+    "description": "Import a Faust library"
+  },
+  "Component Definition": {
+    "prefix": "component",
+    "body": [
+      "component(\"$1\") = $2;"
+    ],
+    "description": "Define a component"
+  },
+  "Declare Statement": {
+    "prefix": "declare",
+    "body": [
+      "declare $1 \"$2\";"
+    ],
+    "description": "Declare metadata"
+  },
+  "Button Control": {
+    "prefix": "button",
+    "body": [
+      "button(\"$1\")"
+    ],
+    "description": "Button UI element"
+  },
+  "Checkbox Control": {
+    "prefix": "checkbox",
+    "body": [
+      "checkbox(\"$1\")"
+    ],
+    "description": "Checkbox UI element"
+  },
+  "Vertical Slider": {
+    "prefix": "vslider",
+    "body": [
+      "vslider(\"$1\", $2, $3, $4, $5)"
+    ],
+    "description": "Vertical slider (label, init, min, max, step)"
+  },
+  "Horizontal Slider": {
+    "prefix": "hslider",
+    "body": [
+      "hslider(\"$1\", $2, $3, $4, $5)"
+    ],
+    "description": "Horizontal slider (label, init, min, max, step)"
+  },
+  "Numeric Entry": {
+    "prefix": "nentry",
+    "body": [
+      "nentry(\"$1\", $2, $3, $4, $5)"
+    ],
+    "description": "Numeric entry (label, init, min, max, step)"
+  },
+  "Oscillator": {
+    "prefix": "osc",
+    "body": [
+      "os.osc($1)"
+    ],
+    "description": "Oscillator from oscillators library"
+  },
+  "Sawtooth Oscillator": {
+    "prefix": "sawtooth",
+    "body": [
+      "os.sawtooth($1)"
+    ],
+    "description": "Sawtooth oscillator"
+  },
+  "Filter": {
+    "prefix": "filter",
+    "body": [
+      "fi.${1|lowpass,highpass,bandpass,resonbp,resonlp,resonhp|}($2, $3)"
+    ],
+    "description": "Filter from filters library"
+  },
+  "Envelope": {
+    "prefix": "envelope",
+    "body": [
+      "en.${1|ar,adsr,asr|}($2)"
+    ],
+    "description": "Envelope from envelopes library"
+  },
+  "Effect": {
+    "prefix": "effect",
+    "body": [
+      "ef.${1|echo,chorus,flanger,phaser,reverb|}($2)"
+    ],
+    "description": "Effect from effects library"
+  },
+  "Delay": {
+    "prefix": "delay",
+    "body": [
+      "de.delay($1, $2)"
+    ],
+    "description": "Delay line (max_delay, delay_time)"
+  },
+  "Feedback Delay": {
+    "prefix": "fdelay",
+    "body": [
+      "de.fdelay($1, $2)"
+    ],
+    "description": "Fractional delay line"
+  },
+  "Recursive Composition": {
+    "prefix": "letrec",
+    "body": [
+      "letrec {",
+      "  '$1 = $2;",
+      "} in $3"
+    ],
+    "description": "Recursive composition with letrec"
+  },
+  "With Environment": {
+    "prefix": "with",
+    "body": [
+      "with {",
+      "  $1",
+      "} : $2"
+    ],
+    "description": "With environment"
+  },
+  "Parallel Composition": {
+    "prefix": "par",
+    "body": [
+      "par(i, $1, $2)"
+    ],
+    "description": "Parallel composition"
+  },
+  "Sequential Composition": {
+    "prefix": "seq",
+    "body": [
+      "seq(i, $1, $2)"
+    ],
+    "description": "Sequential composition"
+  },
+  "Sum Composition": {
+    "prefix": "sum",
+    "body": [
+      "sum(i, $1, $2)"
+    ],
+    "description": "Sum composition"
+  },
+  "Product Composition": {
+    "prefix": "prod",
+    "body": [
+      "prod(i, $1, $2)"
+    ],
+    "description": "Product composition"
+  }
+}
