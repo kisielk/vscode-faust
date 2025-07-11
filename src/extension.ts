@@ -31,7 +31,6 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('faust.restartLsp', restartLsp),
     vscode.commands.registerCommand('faust.createConfigFile', createConfigFile),
     vscode.commands.registerCommand('faust.compileCurrentFile', compileCurrentFile),
-    vscode.commands.registerCommand('faust.compileToWasm', compileToWasm),
     vscode.commands.registerCommand('faust.launchWebAssembly', launchWebAssembly),
     outputChannel
   );
@@ -343,69 +342,6 @@ async function compileCurrentFile(): Promise<void> {
   }
 }
 
-async function compileToWasm(): Promise<void> {
-  const editor = vscode.window.activeTextEditor;
-  if (!editor) {
-    vscode.window.showErrorMessage('No active editor found');
-    return;
-  }
-
-  const document = editor.document;
-  if (!document.fileName.endsWith('.dsp')) {
-    vscode.window.showErrorMessage('Current file is not a Faust DSP file (.dsp)');
-    return;
-  }
-
-  outputChannel.show();
-  outputChannel.appendLine(`Compiling ${document.fileName} to WebAssembly...`);
-
-  try {
-    await initializeFaustModule();
-    
-    const faustCode = document.getText();
-    const fileName = path.basename(document.fileName, '.dsp');
-    const fileDir = path.dirname(document.fileName);
-    const outputDir = path.join(fileDir, 'build');
-    
-    // Create output directory
-    await fs.promises.mkdir(outputDir, { recursive: true });
-    
-    // Compile to WebAssembly using faustwasm
-    const compilationOptions = '-I libraries/';
-    const wasmFactory = await faustModule.compiler.createMonoDSPFactory(fileName, faustCode, compilationOptions);
-    
-    if (wasmFactory) {
-      outputChannel.appendLine('✓ Successfully compiled to WebAssembly');
-      
-      // Save the WebAssembly module
-      const wasmFile = path.join(outputDir, `${fileName}.wasm`);
-      await fs.promises.writeFile(wasmFile, wasmFactory.code);
-      outputChannel.appendLine(`  WASM saved to: ${wasmFile}`);
-      
-      // Save the metadata JSON
-      const metaFile = path.join(outputDir, `${fileName}-meta.json`);
-      await fs.promises.writeFile(metaFile, wasmFactory.json);
-      outputChannel.appendLine(`  Metadata saved to: ${metaFile}`);
-      
-      vscode.window.showInformationMessage(`WebAssembly compilation completed: ${fileName}.wasm`);
-      
-      // Clean up
-      faustModule.compiler.deleteDSPFactory(wasmFactory);
-    } else {
-      outputChannel.appendLine('✗ Failed to compile to WebAssembly');
-      const errorMsg = faustModule.compiler.getErrorMessage();
-      if (errorMsg) {
-        outputChannel.appendLine(`  Error: ${errorMsg}`);
-      }
-      vscode.window.showErrorMessage('WebAssembly compilation failed');
-    }
-    
-  } catch (error) {
-    outputChannel.appendLine(`WebAssembly compilation error: ${error}`);
-    vscode.window.showErrorMessage(`WebAssembly compilation failed: ${error}`);
-  }
-}
-
 async function launchWebAssembly(): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
@@ -437,7 +373,7 @@ async function launchWebAssembly(): Promise<void> {
     );
     
     if (compile === 'Compile and Launch') {
-      await compileToWasm();
+      await compileCurrentFile();
       // Check again after compilation
       try {
         await fs.promises.access(wasmFile);

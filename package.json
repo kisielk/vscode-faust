@@ -102,12 +102,6 @@
         "icon": "$(gear)"
       },
       {
-        "command": "faust.compileToWasm",
-        "title": "Compile to WebAssembly",
-        "category": "Faust",
-        "icon": "$(gear)"
-      },
-      {
         "command": "faust.launchWebAssembly",
         "title": "Launch WebAssembly in Browser",
         "category": "Faust",
@@ -120,11 +114,6 @@
           "command": "faust.compileCurrentFile",
           "when": "resourceExtname == .dsp",
           "group": "faust@1"
-        },
-        {
-          "command": "faust.compileToWasm",
-          "when": "resourceExtname == .dsp",
-          "group": "faust@2"
         },
         {
           "command": "faust.launchWebAssembly",
