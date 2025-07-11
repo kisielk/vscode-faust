@@ -207,3 +207,26 @@ This extension is licensed under the MIT License.
 - [Faust Documentation](https://faustdoc.grame.fr/)
 - [faustlsp](https://github.com/carn181/faustlsp)
 - [Faust Libraries](https://github.com/grame-cncm/faustlibraries)
+
+## Audio Processing Details
+
+**Important:** The extension uses the **compiled DSP WebAssembly** for audio processing, not a test tone. When you click "Start Audio":
+
+1. The compiled WebAssembly module is loaded and instantiated
+2. The DSP is initialized with the audio context sample rate
+3. Parameters are set to their initial values from the metadata
+4. A ScriptProcessorNode is created to process audio in real-time
+5. The audio processing loop calls the DSP's `compute()` function with actual audio buffers
+6. The faust-ui controls directly modify the DSP parameters using `setParamValue()`
+
+**What you hear is the output of your compiled Faust DSP code, not a test tone!**
+
+If your DSP is a simple oscillator (like `process = os.osc(freq) * gain;`), it will sound like a sine wave because that's what the DSP generates.
+
+### Debugging Audio Processing
+
+To verify the DSP is working:
+1. Open the browser developer tools in the webview (right-click → Inspect)
+2. Check the console for messages like "DSP processing cycle X - using compiled WebAssembly DSP, not test tone"
+3. Try changing parameters in the UI - you should see the sound change in real-time
+4. The status bar shows "Audio running - using compiled DSP WebAssembly"
