@@ -1,7 +1,33 @@
 {
   "name": "vscode-faust",
   "displayName": "Faust Language Support",
-  "description": "Language support for Faust (Functional Audio Stream) - syntax highlighting, LSP integration, and code snippets",
+  "description"    "commands": [
+      {
+        "command": "faust.restartLsp",
+        "title": "Restart Faust LSP",
+        "category": "Faust"
+      },
+      {
+        "command": "faust.createConfigFile",
+        "title": "Create Faust Config File",
+        "category": "Faust"
+      },
+      {
+        "command": "faust.compileCurrentFile",
+        "title": "Compile Current File",
+        "category": "Faust"
+      },
+      {
+        "command": "faust.compileToWasm",
+        "title": "Compile to WebAssembly",
+        "category": "Faust"
+      },
+      {
+        "command": "faust.compileToJavaScript",
+        "title": "Compile to JavaScript",
+        "category": "Faust"
+      }
+    ],support for Faust (Functional Audio Stream) - syntax highlighting, LSP integration, and code snippets",
   "version": "0.1.0",
   "publisher": "your-publisher-name",
   "author": "Your Name",
@@ -94,53 +120,34 @@
         "command": "faust.createConfigFile",
         "title": "Create Faust Config File",
         "category": "Faust"
-      },
-      {
-        "command": "faust.compileCurrentFile",
-        "title": "Compile Current File (WebAssembly)",
-        "category": "Faust"
-      },
-      {
-        "command": "faust.compileToWasm",
-        "title": "Compile to WebAssembly",
-        "category": "Faust"
-      },
-      {
-        "command": "faust.compileToJavaScript",
-        "title": "Compile to JavaScript (Browser Only)",
-        "category": "Faust"
       }
     ],
-    "version": "0.1.0",
-    "publisher": "your-publisher-name",
-    "author": "Your Name",
-    "license": "MIT",
-    "homepage": "https://github.com/your-username/vscode-faust",
-    "repository": {
-      "type": "git",
-      "url": "https://github.com/your-username/vscode-faust.git"
-    },
-    "bugs": {
-      "url": "https://github.com/your-username/vscode-faust/issues"
-    },
-    "keywords": [
-      "faust",
-      "audio",
-      "dsp",
-      "functional",
-      "programming",
-      "music",
-      "synthesis"
-    ],
-    "engines": {
-      "vscode": "^1.75.0"
-    },
-    "categories": [
-      "Programming Languages",
-      "Snippets",
-      "Other"
-    ],
-    "main": "./out/extension.js"
+    "menus": {
+      "editor/context": [
+        {
+          "command": "faust.compileCurrentFile",
+          "when": "resourceExtname == .dsp",
+          "group": "faust"
+        },
+        {
+          "command": "faust.compileToWasm",
+          "when": "resourceExtname == .dsp",
+          "group": "faust"
+        },
+        {
+          "command": "faust.compileToJavaScript",
+          "when": "resourceExtname == .dsp",
+          "group": "faust"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "faust.compileCurrentFile",
+          "when": "resourceExtname == .dsp",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -151,14 +158,14 @@
     "test": "vscode-test"
   },
   "dependencies": {
-    "@grame/faustwasm": "^0.11.0",
     "glob": "^11.0.0",
     "vscode-languageclient": "^9.0.1",
-    "which": "^3.0.0"
+    "which": "^3.0.0",
+    "@grame/faustwasm": "^0.11.0"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
-    "@types/node": "^20.19.7",
+    "@types/node": "20.x",
     "@types/vscode": "^1.101.0",
     "@types/which": "^3.0.4",
     "@typescript-eslint/eslint-plugin": "^8.31.1",

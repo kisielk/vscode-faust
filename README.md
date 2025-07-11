@@ -11,6 +11,8 @@ A VS Code extension for [Faust](https://faust.grame.fr/) (Functional AUdio STrea
 - **Error Diagnostics**: Real-time error reporting and syntax checking
 - **Configuration Management**: Automatic handling of Faust configuration files
 - **Multiple File Support**: Support for `.dsp` and `.lib` files
+- **WebAssembly Compilation**: Compile Faust code to WebAssembly using faustwasm
+- **JavaScript Compilation**: Compile Faust code to JavaScript using faustwasm
 
 ## Installation
 
@@ -20,8 +22,9 @@ A VS Code extension for [Faust](https://faust.grame.fr/) (Functional AUdio STrea
 
 ## Requirements
 
-- **faustlsp**: The Faust Language Server Protocol implementation
-- **Faust compiler**: For full functionality, install the Faust compiler
+- **faustlsp**: The Faust Language Server Protocol implementation (optional, for LSP features)
+- **Faust compiler**: For full functionality, install the Faust compiler (optional, for traditional compilation)
+- **faustwasm**: WebAssembly version of the Faust compiler (included with the extension)
 
 ## Configuration
 
@@ -52,6 +55,9 @@ Create a `.faustcfg.json` file in your workspace root:
 
 - **Faust: Restart LSP** - Restart the Faust Language Server
 - **Faust: Create Config File** - Create a default `.faustcfg.json` file
+- **Faust: Compile Current File (WebAssembly)** - Compile the current DSP file to WebAssembly
+- **Faust: Compile to WebAssembly** - Compile the current DSP file to WebAssembly (.wasm)
+- **Faust: Compile to JavaScript (Browser Only)** - Information about JavaScript compilation limitations
 
 ## Usage
 
@@ -62,6 +68,42 @@ Create a `.faustcfg.json` file in your workspace root:
    - Error diagnostics
    - Go to definition
    - Hover information
+4. Use the compilation commands to compile your Faust DSP files:
+   - Right-click in a `.dsp` file and select compilation options
+   - Use the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) and search for "Faust: Compile"
+   - Compiled files will be saved in a `build` folder next to your source file
+
+### WebAssembly Compilation
+
+The extension uses the **faustwasm** library to compile Faust DSP code directly within VS Code:
+
+- **Faust: Compile Current File (WebAssembly)** - Compiles to WebAssembly (.wasm) and generates metadata JSON
+- **Faust: Compile to WebAssembly** - Generates .wasm module and metadata JSON
+
+**Note:** JavaScript compilation (AudioWorklet) requires a browser environment and is not currently supported in the VS Code/Node.js context. The extension focuses on WebAssembly compilation which works perfectly in VS Code.
+
+Example output structure:
+```
+my-project/
+├── oscillator.dsp
+└── build/
+    ├── oscillator.wasm
+    └── oscillator-meta.json
+```
+
+### Example DSP File
+
+Create a simple oscillator (`oscillator.dsp`):
+```faust
+import("stdfaust.lib");
+
+freq = hslider("frequency", 440, 50, 2000, 0.1);
+gain = hslider("gain", 0.5, 0, 1, 0.01);
+
+process = os.osc(freq) * gain;
+```
+
+Then use **Faust: Compile Current File (WebAssembly)** to generate WebAssembly version ready for use in web applications.
 
 ## Code Snippets
 

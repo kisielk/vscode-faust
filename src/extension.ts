@@ -14,8 +14,12 @@ import fs from "fs";
 import path from "path";
 import which from "which";
 
+// Import faustwasm dynamically
+let FaustModule: any;
+
 let client: LanguageClient | undefined;
 let outputChannel: vscode.OutputChannel;
+let faustModule: any;
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -26,6 +30,9 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('faust.restartLsp', restartLsp),
     vscode.commands.registerCommand('faust.createConfigFile', createConfigFile),
+    vscode.commands.registerCommand('faust.compileCurrentFile', compileCurrentFile),
+    vscode.commands.registerCommand('faust.compileToWasm', compileToWasm),
+    vscode.commands.registerCommand('faust.compileToJavaScript', compileToJavaScript),
     outputChannel
   );
 
@@ -34,7 +41,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Watch for configuration changes
   context.subscriptions.push(
-    vscode.workspace.onDidChangeConfiguration(async (event) => {
+    vscode.workspace.onDidChangeConfiguration(async (event: vscode.ConfigurationChangeEvent) => {
       if (event.affectsConfiguration('faust')) {
         outputChannel.appendLine('Faust configuration changed, restarting LSP...');
         await restartLsp();
@@ -211,6 +218,220 @@ async function checkExecutableExists(executable: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+// Faustwasm compilation functions
+async function initializeFaustModule(): Promise<void> {
+  if (!faustModule) {
+    try {
+      // Dynamic import from the specific ESM dist path
+      const faustWasm = await import('@grame/faustwasm/dist/esm/index.js');
+      
+      outputChannel.appendLine('Initializing Faust WebAssembly module...');
+      
+      // Get the path to the libfaust-wasm.js file
+      const libfaustPath = require.resolve('@grame/faustwasm/libfaust-wasm/libfaust-wasm.js');
+      outputChannel.appendLine(`Using libfaust-wasm.js from: ${libfaustPath}`);
+      
+      // Use the correct API: instantiateFaustModuleFromFile with the JS file path
+      const faustModuleInstance = await faustWasm.instantiateFaustModuleFromFile(libfaustPath);
+      
+      // Create LibFaust instance
+      const libFaust = new faustWasm.LibFaust(faustModuleInstance);
+      outputChannel.appendLine(`LibFaust version: ${libFaust.version()}`);
+      
+      // Create FaustCompiler instance
+      const compiler = new faustWasm.FaustCompiler(libFaust);
+      
+      // Store the compiler as our faustModule
+      faustModule = {
+        compiler,
+        libFaust,
+        faustWasm
+      };
+      
+      outputChannel.appendLine('Faust WebAssembly module initialized successfully');
+    } catch (error) {
+      outputChannel.appendLine(`Failed to initialize Faust module: ${error}`);
+      vscode.window.showErrorMessage(`Failed to initialize Faust module: ${error}`);
+      throw error;
+    }
+  }
+}
+
+async function compileCurrentFile(): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showErrorMessage('No active editor found');
+    return;
+  }
+
+  const document = editor.document;
+  if (!document.fileName.endsWith('.dsp')) {
+    vscode.window.showErrorMessage('Current file is not a Faust DSP file (.dsp)');
+    return;
+  }
+
+  outputChannel.show();
+  outputChannel.appendLine(`Compiling ${document.fileName}...`);
+
+  try {
+    await initializeFaustModule();
+    
+    const faustCode = document.getText();
+    const fileName = path.basename(document.fileName, '.dsp');
+    const fileDir = path.dirname(document.fileName);
+    const outputDir = path.join(fileDir, 'build');
+    
+    // Create output directory
+    await fs.promises.mkdir(outputDir, { recursive: true });
+    
+    // Compile to different targets using faustwasm
+    const compilationOptions = '-I libraries/';
+    
+    // Compile to WebAssembly
+    try {
+      outputChannel.appendLine('Compiling to WebAssembly...');
+      const wasmFactory = await faustModule.compiler.createMonoDSPFactory(fileName, faustCode, compilationOptions);
+      
+      if (wasmFactory) {
+        outputChannel.appendLine('✓ Successfully compiled to WebAssembly');
+        
+        // Save the WebAssembly module
+        const wasmFile = path.join(outputDir, `${fileName}.wasm`);
+        await fs.promises.writeFile(wasmFile, wasmFactory.code);
+        outputChannel.appendLine(`  WASM saved to: ${wasmFile}`);
+        
+        // Save the metadata JSON
+        const metaFile = path.join(outputDir, `${fileName}-meta.json`);
+        await fs.promises.writeFile(metaFile, wasmFactory.json);
+        outputChannel.appendLine(`  Metadata saved to: ${metaFile}`);
+        
+        // Clean up
+        faustModule.compiler.deleteDSPFactory(wasmFactory);
+      } else {
+        outputChannel.appendLine('✗ Failed to compile to WebAssembly');
+        const errorMsg = faustModule.compiler.getErrorMessage();
+        if (errorMsg) {
+          outputChannel.appendLine(`  Error: ${errorMsg}`);
+        }
+      }
+    } catch (error) {
+      outputChannel.appendLine(`✗ Error compiling to WebAssembly: ${error}`);
+    }
+    
+    // Note: JavaScript compilation (AudioWorklet) requires a browser context
+    // For now, we focus on WebAssembly compilation which works in Node.js
+    
+    vscode.window.showInformationMessage(`Faust compilation completed for ${fileName}`);
+    
+  } catch (error) {
+    outputChannel.appendLine(`Compilation error: ${error}`);
+    vscode.window.showErrorMessage(`Compilation failed: ${error}`);
+  }
+}
+
+async function compileToWasm(): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showErrorMessage('No active editor found');
+    return;
+  }
+
+  const document = editor.document;
+  if (!document.fileName.endsWith('.dsp')) {
+    vscode.window.showErrorMessage('Current file is not a Faust DSP file (.dsp)');
+    return;
+  }
+
+  outputChannel.show();
+  outputChannel.appendLine(`Compiling ${document.fileName} to WebAssembly...`);
+
+  try {
+    await initializeFaustModule();
+    
+    const faustCode = document.getText();
+    const fileName = path.basename(document.fileName, '.dsp');
+    const fileDir = path.dirname(document.fileName);
+    const outputDir = path.join(fileDir, 'build');
+    
+    // Create output directory
+    await fs.promises.mkdir(outputDir, { recursive: true });
+    
+    // Compile to WebAssembly using faustwasm
+    const compilationOptions = '-I libraries/';
+    const wasmFactory = await faustModule.compiler.createMonoDSPFactory(fileName, faustCode, compilationOptions);
+    
+    if (wasmFactory) {
+      outputChannel.appendLine('✓ Successfully compiled to WebAssembly');
+      
+      // Save the WebAssembly module
+      const wasmFile = path.join(outputDir, `${fileName}.wasm`);
+      await fs.promises.writeFile(wasmFile, wasmFactory.code);
+      outputChannel.appendLine(`  WASM saved to: ${wasmFile}`);
+      
+      // Save the metadata JSON
+      const metaFile = path.join(outputDir, `${fileName}-meta.json`);
+      await fs.promises.writeFile(metaFile, wasmFactory.json);
+      outputChannel.appendLine(`  Metadata saved to: ${metaFile}`);
+      
+      vscode.window.showInformationMessage(`WebAssembly compilation completed: ${fileName}.wasm`);
+      
+      // Clean up
+      faustModule.compiler.deleteDSPFactory(wasmFactory);
+    } else {
+      outputChannel.appendLine('✗ Failed to compile to WebAssembly');
+      const errorMsg = faustModule.compiler.getErrorMessage();
+      if (errorMsg) {
+        outputChannel.appendLine(`  Error: ${errorMsg}`);
+      }
+      vscode.window.showErrorMessage('WebAssembly compilation failed');
+    }
+    
+  } catch (error) {
+    outputChannel.appendLine(`WebAssembly compilation error: ${error}`);
+    vscode.window.showErrorMessage(`WebAssembly compilation failed: ${error}`);
+  }
+}
+
+async function compileToJavaScript(): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showErrorMessage('No active editor found');
+    return;
+  }
+
+  const document = editor.document;
+  if (!document.fileName.endsWith('.dsp')) {
+    vscode.window.showErrorMessage('Current file is not a Faust DSP file (.dsp)');
+    return;
+  }
+
+  outputChannel.show();
+  outputChannel.appendLine(`Compiling ${document.fileName} to JavaScript...`);
+
+  try {
+    await initializeFaustModule();
+    
+    const faustCode = document.getText();
+    const fileName = path.basename(document.fileName, '.dsp');
+    const fileDir = path.dirname(document.fileName);
+    const outputDir = path.join(fileDir, 'build');
+    
+    // Create output directory
+    await fs.promises.mkdir(outputDir, { recursive: true });
+    
+    // Note: JavaScript (AudioWorklet) compilation requires a browser context
+    // For now, this command focuses on WebAssembly compilation
+    outputChannel.appendLine('Note: JavaScript compilation requires a browser context.');
+    outputChannel.appendLine('Use "Faust: Compile to WebAssembly" for WASM compilation.');
+    
+    vscode.window.showInformationMessage('JavaScript compilation requires a browser context. Use WebAssembly compilation instead.');
+    
+  } catch (error) {
+    outputChannel.appendLine(`JavaScript compilation error: ${error}`);
+    vscode.window.showErrorMessage(`JavaScript compilation failed: ${error}`);
   }
 }
 
