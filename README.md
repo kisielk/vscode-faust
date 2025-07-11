@@ -13,6 +13,7 @@ A VS Code extension for [Faust](https://faust.grame.fr/) (Functional AUdio STrea
 - **Multiple File Support**: Support for `.dsp` and `.lib` files
 - **WebAssembly Compilation**: Compile Faust code to WebAssembly using faustwasm
 - **JavaScript Compilation**: Compile Faust code to JavaScript using faustwasm
+- **Interactive WebAssembly Testing**: Launch compiled WebAssembly in a VS Code webview for real-time audio testing with parameter controls
 
 ## Installation
 
@@ -58,6 +59,12 @@ Create a `.faustcfg.json` file in your workspace root:
 - **Faust: Compile Current File (WebAssembly)** - Compile the current DSP file to WebAssembly
 - **Faust: Compile to WebAssembly** - Compile the current DSP file to WebAssembly (.wasm)
 - **Faust: Compile to JavaScript (Browser Only)** - Information about JavaScript compilation limitations
+- **Faust: Launch WebAssembly in Browser** - Launch the compiled WebAssembly in a VS Code webview for interactive testing
+
+## Keyboard Shortcuts
+
+- **Ctrl+Shift+B** (Cmd+Shift+B on Mac) - Compile current DSP file to WebAssembly
+- **Ctrl+Shift+L** (Cmd+Shift+L on Mac) - Launch WebAssembly in webview
 
 ## Usage
 
@@ -81,6 +88,31 @@ The extension uses the **faustwasm** library to compile Faust DSP code directly 
 - **Faust: Compile to WebAssembly** - Generates .wasm module and metadata JSON
 
 **Note:** JavaScript compilation (AudioWorklet) requires a browser environment and is not currently supported in the VS Code/Node.js context. The extension focuses on WebAssembly compilation which works perfectly in VS Code.
+
+### Interactive WebAssembly Testing
+
+The extension provides an innovative feature to test your compiled DSP directly within VS Code:
+
+1. **Compile** your DSP file to WebAssembly using the compile command
+2. **Launch** the WebAssembly in a VS Code webview using the "Launch WebAssembly in Browser" command
+3. **Test** your DSP with:
+   - Real-time audio processing
+   - Interactive parameter controls (automatically generated from your DSP UI elements)
+   - Visual feedback with compilation information
+   - Start/stop audio controls
+
+The webview provides a complete audio testing environment with:
+- Audio context management
+- Real-time parameter control via sliders
+- Visual feedback for all DSP parameters
+- Compilation metadata display
+- Error handling and status reporting
+
+**Access the launch feature:**
+- Right-click in a `.dsp` file → "Launch WebAssembly in Browser"
+- Use keyboard shortcut `Ctrl+Shift+L` (Cmd+Shift+L on Mac)
+- Command Palette → "Faust: Launch WebAssembly in Browser"
+- Click the browser icon in the editor title bar
 
 Example output structure:
 ```

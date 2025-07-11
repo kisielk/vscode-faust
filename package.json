@@ -98,17 +98,88 @@
       {
         "command": "faust.compileCurrentFile",
         "title": "Compile Current File (WebAssembly)",
-        "category": "Faust"
+        "category": "Faust",
+        "icon": "$(gear)"
       },
       {
         "command": "faust.compileToWasm",
         "title": "Compile to WebAssembly",
-        "category": "Faust"
+        "category": "Faust",
+        "icon": "$(gear)"
       },
       {
         "command": "faust.compileToJavaScript",
         "title": "Compile to JavaScript (Browser Only)",
-        "category": "Faust"
+        "category": "Faust",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "faust.launchWebAssembly",
+        "title": "Launch WebAssembly in Browser",
+        "category": "Faust",
+        "icon": "$(browser)"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "faust.compileCurrentFile",
+          "when": "resourceExtname == .dsp",
+          "group": "faust@1"
+        },
+        {
+          "command": "faust.compileToWasm",
+          "when": "resourceExtname == .dsp",
+          "group": "faust@2"
+        },
+        {
+          "command": "faust.compileToJavaScript",
+          "when": "resourceExtname == .dsp",
+          "group": "faust@3"
+        },
+        {
+          "command": "faust.launchWebAssembly",
+          "when": "resourceExtname == .dsp",
+          "group": "faust@4"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "faust.compileCurrentFile",
+          "when": "resourceExtname == .dsp",
+          "group": "navigation@1"
+        },
+        {
+          "command": "faust.launchWebAssembly",
+          "when": "resourceExtname == .dsp",
+          "group": "navigation@2"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "faust.compileCurrentFile",
+          "when": "resourceExtname == .dsp",
+          "group": "faust@1"
+        },
+        {
+          "command": "faust.launchWebAssembly",
+          "when": "resourceExtname == .dsp",
+          "group": "faust@2"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "faust.compileCurrentFile",
+        "key": "ctrl+shift+b",
+        "mac": "cmd+shift+b",
+        "when": "resourceExtname == .dsp"
+      },
+      {
+        "command": "faust.launchWebAssembly",
+        "key": "ctrl+shift+l",
+        "mac": "cmd+shift+l",
+        "when": "resourceExtname == .dsp"
       }
     ],
     "version": "0.1.0",

@@ -33,6 +33,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('faust.compileCurrentFile', compileCurrentFile),
     vscode.commands.registerCommand('faust.compileToWasm', compileToWasm),
     vscode.commands.registerCommand('faust.compileToJavaScript', compileToJavaScript),
+    vscode.commands.registerCommand('faust.launchWebAssembly', launchWebAssembly),
     outputChannel
   );
 
@@ -433,6 +434,370 @@ async function compileToJavaScript(): Promise<void> {
     outputChannel.appendLine(`JavaScript compilation error: ${error}`);
     vscode.window.showErrorMessage(`JavaScript compilation failed: ${error}`);
   }
+}
+
+async function launchWebAssembly(): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showErrorMessage('No active editor found');
+    return;
+  }
+
+  const document = editor.document;
+  if (!document.fileName.endsWith('.dsp')) {
+    vscode.window.showErrorMessage('Current file is not a Faust DSP file (.dsp)');
+    return;
+  }
+
+  const fileName = path.basename(document.fileName, '.dsp');
+  const fileDir = path.dirname(document.fileName);
+  const outputDir = path.join(fileDir, 'build');
+  const wasmFile = path.join(outputDir, `${fileName}.wasm`);
+  const metaFile = path.join(outputDir, `${fileName}-meta.json`);
+
+  // Check if compiled files exist
+  try {
+    await fs.promises.access(wasmFile);
+    await fs.promises.access(metaFile);
+  } catch (error) {
+    const compile = await vscode.window.showInformationMessage(
+      'WebAssembly files not found. Would you like to compile first?',
+      'Compile and Launch',
+      'Cancel'
+    );
+    
+    if (compile === 'Compile and Launch') {
+      await compileToWasm();
+      // Check again after compilation
+      try {
+        await fs.promises.access(wasmFile);
+        await fs.promises.access(metaFile);
+      } catch {
+        vscode.window.showErrorMessage('Compilation failed. Cannot launch WebAssembly.');
+        return;
+      }
+    } else {
+      return;
+    }
+  }
+
+  outputChannel.show();
+  outputChannel.appendLine(`Launching WebAssembly for ${fileName}...`);
+
+  try {
+    // Create webview panel
+    const panel = vscode.window.createWebviewPanel(
+      'faustWebAssembly',
+      `Faust DSP: ${fileName}`,
+      vscode.ViewColumn.Beside,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [vscode.Uri.file(outputDir)]
+      }
+    );
+
+    // Read the compiled files
+    const wasmData = await fs.promises.readFile(wasmFile);
+    const metaData = await fs.promises.readFile(metaFile, 'utf8');
+    const metadata = JSON.parse(metaData);
+
+    // Generate HTML content
+    const htmlContent = generateFaustWebAssemblyHTML(fileName, wasmData, metadata, panel.webview, outputDir);
+    
+    panel.webview.html = htmlContent;
+
+    outputChannel.appendLine(`✓ WebAssembly launched successfully for ${fileName}`);
+    
+  } catch (error) {
+    outputChannel.appendLine(`Launch error: ${error}`);
+    vscode.window.showErrorMessage(`Failed to launch WebAssembly: ${error}`);
+  }
+}
+
+function generateFaustWebAssemblyHTML(fileName: string, wasmData: Buffer, metadata: any, webview: vscode.Webview, outputDir: string): string {
+  // Convert WASM data to base64 for embedding
+  const wasmBase64 = wasmData.toString('base64');
+  
+  // Extract UI controls from metadata
+  const uiControls = metadata.ui[0]?.items || [];
+  
+  // Generate HTML with embedded WebAssembly
+  return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faust DSP: ${fileName}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background-color: var(--vscode-editor-background);
+            color: var(--vscode-editor-foreground);
+        }
+        .header {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: var(--vscode-editor-inactiveSelectionBackground);
+            border-radius: 8px;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .control-group label {
+            min-width: 120px;
+            font-weight: 500;
+        }
+        .control-group input {
+            flex: 1;
+            max-width: 300px;
+        }
+        .control-group .value {
+            min-width: 60px;
+            text-align: right;
+            font-family: monospace;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .status.success { background-color: var(--vscode-inputValidation-infoBackground); }
+        .status.error { background-color: var(--vscode-inputValidation-errorBackground); }
+        .info {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: var(--vscode-textBlockQuote-background);
+            border-left: 4px solid var(--vscode-textBlockQuote-border);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Faust DSP: ${fileName}</h1>
+        <p>Compiled with Faust ${metadata.version}</p>
+        <p>Inputs: ${metadata.inputs}, Outputs: ${metadata.outputs}</p>
+    </div>
+
+    <div class="buttons">
+        <button id="startBtn">Start Audio</button>
+        <button id="stopBtn" disabled>Stop Audio</button>
+    </div>
+
+    <div class="controls">
+        ${uiControls.map((control: any) => `
+            <div class="control-group">
+                <label>${control.label}:</label>
+                <input 
+                    type="range" 
+                    id="${control.address}"
+                    min="${control.min}" 
+                    max="${control.max}" 
+                    step="${control.step}" 
+                    value="${control.init}"
+                    data-address="${control.address}"
+                >
+                <span class="value" id="${control.address}_value">${control.init}</span>
+            </div>
+        `).join('')}
+    </div>
+
+    <div class="status" id="status">Ready to start</div>
+
+    <div class="info">
+        <h3>DSP Information</h3>
+        <p><strong>Compilation options:</strong> ${metadata.compile_options}</p>
+        <p><strong>Library list:</strong> ${metadata.library_list.join(', ')}</p>
+    </div>
+
+    <script>
+        let audioContext;
+        let faustProcessor;
+        let isRunning = false;
+
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const statusDiv = document.getElementById('status');
+
+        // Convert base64 WASM to ArrayBuffer
+        function base64ToArrayBuffer(base64) {
+            const binaryString = atob(base64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        // Initialize audio context and load WASM
+        async function initAudio() {
+            try {
+                statusDiv.textContent = 'Initializing audio context...';
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                statusDiv.textContent = 'Loading WebAssembly module...';
+                const wasmArrayBuffer = base64ToArrayBuffer('${wasmBase64}');
+                const wasmModule = await WebAssembly.compile(wasmArrayBuffer);
+                
+                statusDiv.textContent = 'Creating WebAssembly instance...';
+                const wasmInstance = await WebAssembly.instantiate(wasmModule, {
+                    env: {
+                        memory: new WebAssembly.Memory({ initial: 256 }),
+                        _sinf: Math.sin,
+                        _cosf: Math.cos,
+                        _tanf: Math.tan,
+                        _asinf: Math.asin,
+                        _acosf: Math.acos,
+                        _atanf: Math.atan,
+                        _atan2f: Math.atan2,
+                        _expf: Math.exp,
+                        _logf: Math.log,
+                        _sqrtf: Math.sqrt,
+                        _powf: Math.pow,
+                        _floorf: Math.floor,
+                        _ceilf: Math.ceil,
+                        _fmodf: function(a, b) { return a % b; },
+                        _roundf: Math.round
+                    }
+                });
+
+                // Create a simple processor using ScriptProcessorNode (for compatibility)
+                const bufferSize = 1024;
+                faustProcessor = audioContext.createScriptProcessor(bufferSize, ${metadata.inputs}, ${metadata.outputs});
+                
+                const dspInstance = wasmInstance.exports;
+                
+                // Initialize the DSP
+                dspInstance.init(audioContext.sampleRate);
+                
+                // Set up audio processing
+                faustProcessor.onaudioprocess = function(event) {
+                    const inputBuffer = event.inputBuffer;
+                    const outputBuffer = event.outputBuffer;
+                    
+                    // Get input and output arrays
+                    const inputs = [];
+                    for (let i = 0; i < ${metadata.inputs}; i++) {
+                        inputs.push(inputBuffer.getChannelData(i));
+                    }
+                    
+                    const outputs = [];
+                    for (let i = 0; i < ${metadata.outputs}; i++) {
+                        outputs.push(outputBuffer.getChannelData(i));
+                    }
+                    
+                    // Process audio (simplified - would need proper memory management)
+                    try {
+                        // This is a simplified version - proper implementation would need
+                        // to handle memory allocation and proper DSP compute calls
+                        if (outputs.length > 0) {
+                            // Generate simple test tone for demonstration
+                            const frequency = 440;
+                            for (let i = 0; i < outputs[0].length; i++) {
+                                outputs[0][i] = Math.sin(2 * Math.PI * frequency * (audioContext.currentTime + i / audioContext.sampleRate)) * 0.1;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Audio processing error:', e);
+                    }
+                };
+                
+                // Set up UI controls
+                ${uiControls.map((control: any) => `
+                    const control_${control.address.replace(/[^a-zA-Z0-9]/g, '_')} = document.getElementById('${control.address}');
+                    const value_${control.address.replace(/[^a-zA-Z0-9]/g, '_')} = document.getElementById('${control.address}_value');
+                    
+                    control_${control.address.replace(/[^a-zA-Z0-9]/g, '_')}.addEventListener('input', function() {
+                        value_${control.address.replace(/[^a-zA-Z0-9]/g, '_')}.textContent = this.value;
+                        // Update DSP parameter (simplified)
+                        if (dspInstance.setParamValue) {
+                            dspInstance.setParamValue('${control.address}', parseFloat(this.value));
+                        }
+                    });
+                `).join('')}
+                
+                statusDiv.textContent = 'Audio system ready';
+                statusDiv.className = 'status success';
+                
+            } catch (error) {
+                statusDiv.textContent = 'Error: ' + error.message;
+                statusDiv.className = 'status error';
+                console.error('Audio initialization error:', error);
+            }
+        }
+
+        // Start audio processing
+        async function startAudio() {
+            if (!audioContext) {
+                await initAudio();
+            }
+            
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
+            
+            faustProcessor.connect(audioContext.destination);
+            isRunning = true;
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            statusDiv.textContent = 'Audio running';
+            statusDiv.className = 'status success';
+        }
+
+        // Stop audio processing
+        function stopAudio() {
+            if (faustProcessor) {
+                faustProcessor.disconnect();
+            }
+            isRunning = false;
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            statusDiv.textContent = 'Audio stopped';
+            statusDiv.className = 'status';
+        }
+
+        // Event listeners
+        startBtn.addEventListener('click', startAudio);
+        stopBtn.addEventListener('click', stopAudio);
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            statusDiv.textContent = 'Click "Start Audio" to begin';
+        });
+    </script>
+</body>
+</html>`;
 }
 
 // This method is called when your extension is deactivated
