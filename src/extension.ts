@@ -13,6 +13,7 @@ import {
 import fs from "fs";
 import path from "path";
 import which from "which";
+import os from 'os';
 
 // Import faustwasm dynamically
 let FaustModule: any;
@@ -77,7 +78,8 @@ async function startLspClient(context: vscode.ExtensionContext): Promise<void> {
     return;
   }
 
-  const executablePath = config.get<string>('lsp.executable', 'faustlsp');
+  const executablePathRaw = config.get<string>('lsp.executable', 'faustlsp');
+  const executablePath = expandPath(executablePathRaw);
   const configFileName = getConfigFileName();
   
   // Check if workspace has folders
@@ -212,11 +214,48 @@ async function checkFileExists(filePath: string): Promise<boolean> {
 }
 
 async function checkExecutableExists(executable: string): Promise<boolean> {
+  // If the user provided a path (contains separator or is relative/absolute), check filesystem
   try {
+    const looksLikePath = executable.includes(path.sep) || executable.startsWith('.') || path.isAbsolute(executable);
+    if (looksLikePath) {
+      const expanded = expandPath(executable);
+      try {
+        await fs.promises.access(expanded, fs.constants.X_OK);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    // Otherwise try to resolve from PATH
     await which(executable);
     return true;
   } catch {
     return false;
+  }
+}
+
+function expandPath(p: string): string {
+  if (!p) return p;
+
+  let expanded = p;
+
+  // Expand leading ~ to home directory
+  if (expanded.startsWith('~')) {
+    expanded = path.join(os.homedir(), expanded.slice(1));
+  }
+
+  // Expand environment variables like $VAR or ${VAR}
+  expanded = expanded.replace(/\$\{([^}]+)\}|\$([A-Za-z0-9_]+)/g, (_match, p1, p2) => {
+    const key = p1 || p2;
+    return process.env[key] ?? '';
+  });
+
+  // Resolve relative segments to an absolute path
+  try {
+    return path.resolve(expanded);
+  } catch {
+    return expanded;
   }
 }
 
