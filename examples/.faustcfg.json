@@ -1,0 +1,8 @@
+{
+  "command": "faust",
+  "process_name": "process",
+  "process_files": [
+    "example.dsp"
+  ],
+  "compiler_diagnostics": true
+}
