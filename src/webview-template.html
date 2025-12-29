@@ -120,12 +120,6 @@
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Faust DSP: {{fileName}}</h1>
-        <p>Compiled with Faust {{version}}</p>
-        <p>Inputs: {{inputs}}, Outputs: {{outputs}}</p>
-    </div>
-
     <div class="main-container">
         <div class="controls-panel">
             <div class="audio-controls">
@@ -139,14 +133,14 @@
             
             <div class="status" id="status">Ready to start</div>
         </div>
+    </div>
 
-        <div class="info-panel">
-            <h3>DSP Information</h3>
-            <p><strong>Compilation options:</strong> {{compileOptions}}</p>
-            <p><strong>Library list:</strong> {{libraryList}}</p>
-            <p><strong>Sample rate:</strong> Variable (set by Web Audio API)</p>
-            <p><strong>UI Elements:</strong> {{uiElementCount}} controls</p>
-        </div>
+    <div class="info-panel">
+        <h3>DSP Information</h3>
+        <p><strong>Compilation options:</strong> {{compileOptions}}</p>
+        <p><strong>Library list:</strong> {{libraryList}}</p>
+        <p><strong>Sample rate:</strong> Variable (set by Web Audio API)</p>
+        <p><strong>UI Elements:</strong> {{uiElementCount}} controls</p>
     </div>
 
     <!-- Load faust-ui from CDN -->
@@ -161,6 +155,9 @@
         let isRunning = false;
         let dspInstance;
 
+        // Create memory that will be shared with the WASM module
+        const memory = new WebAssembly.Memory({ initial: 256 });
+
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
         const statusDiv = document.getElementById('status');
@@ -173,6 +170,44 @@
                 bytes[i] = binaryString.charCodeAt(i);
             }
             return bytes.buffer;
+        }
+
+        async function initWasm() {
+            statusDiv.textContent = 'Loading WebAssembly module...';
+            const wasmArrayBuffer = base64ToArrayBuffer('{{wasmBase64}}');
+            const wasmModule = await WebAssembly.compile(wasmArrayBuffer);
+            const wasmInstance = await WebAssembly.instantiate(wasmModule, {
+                env: {
+                    memory: memory,
+                    _sinf: Math.sin,
+                    _cosf: Math.cos,
+                    _tanf: Math.tan,
+                    _asinf: Math.asin,
+                    _acosf: Math.acos,
+                    _atanf: Math.atan,
+                    _atan2f: Math.atan2,
+                    _expf: Math.exp,
+                    _logf: Math.log,
+                    _sqrtf: Math.sqrt,
+                    _powf: Math.pow,
+                    _floorf: Math.floor,
+                    _ceilf: Math.ceil,
+                    _fmodf: function(a, b) { return a % b; },
+                    _roundf: Math.round,
+                    table: new WebAssembly.Table({ initial: 0, element: 'anyfunc' })
+                }
+            });
+            dspInstance = wasmInstance.exports;
+
+            // Debug: Log available functions
+            console.log('Available DSP functions:', Object.keys(dspInstance));
+            
+            // Log specific function checks
+            const requiredFunctions = ['compute', 'init', 'instanceInit', 'instanceConstants', 'instanceClear', 'setParamValue', 'getParamValue'];
+            requiredFunctions.forEach(func => {
+                console.log(`DSP.${func}:`, typeof dspInstance[func]);
+            });
+                    
         }
 
         // Initialize FaustUI
@@ -209,47 +244,7 @@
                 statusDiv.textContent = 'Initializing audio context...';
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 
-                statusDiv.textContent = 'Loading WebAssembly module...';
-                const wasmArrayBuffer = base64ToArrayBuffer('{{wasmBase64}}');
-                const wasmModule = await WebAssembly.compile(wasmArrayBuffer);
-                
                 statusDiv.textContent = 'Creating WebAssembly instance...';
-                // Create memory that will be shared with the WASM module
-                const memory = new WebAssembly.Memory({ initial: 256 });
-                
-                const wasmInstance = await WebAssembly.instantiate(wasmModule, {
-                    env: {
-                        memory: memory,
-                        _sinf: Math.sin,
-                        _cosf: Math.cos,
-                        _tanf: Math.tan,
-                        _asinf: Math.asin,
-                        _acosf: Math.acos,
-                        _atanf: Math.atan,
-                        _atan2f: Math.atan2,
-                        _expf: Math.exp,
-                        _logf: Math.log,
-                        _sqrtf: Math.sqrt,
-                        _powf: Math.pow,
-                        _floorf: Math.floor,
-                        _ceilf: Math.ceil,
-                        _fmodf: function(a, b) { return a % b; },
-                        _roundf: Math.round,
-                        table: new WebAssembly.Table({ initial: 0, element: 'anyfunc' })
-                    }
-                });
-
-                dspInstance = wasmInstance.exports;
-                
-                // Debug: Log available functions
-                console.log('Available DSP functions:', Object.keys(dspInstance));
-                
-                // Log specific function checks
-                const requiredFunctions = ['compute', 'init', 'instanceInit', 'instanceConstants', 'instanceClear', 'setParamValue', 'getParamValue'];
-                requiredFunctions.forEach(func => {
-                    console.log(`DSP.${func}:`, typeof dspInstance[func]);
-                });
-                
                 statusDiv.textContent = 'Initializing DSP...';
                 
                 // Initialize the DSP with sample rate
@@ -503,7 +498,14 @@
                 }
             }
             
-            tryInitUI();
+            initWasm().then(() => {
+                console.log('WASM module initialized');
+                tryInitUI();
+            }).catch(error => {
+                statusDiv.textContent = 'Error initializing WASM: ' + error.message;
+                statusDiv.className = 'status error';
+                console.error('WASM initialization error:', error);
+            });
         });
     </script>
 </body>
