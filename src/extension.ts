@@ -236,7 +236,9 @@ async function checkExecutableExists(executable: string): Promise<boolean> {
 }
 
 function expandPath(p: string): string {
-  if (!p) return p;
+  if (!p) {
+    return p;
+  }
 
   let expanded = p;
 
@@ -473,26 +475,12 @@ function generateFaustWebAssemblyHTML(fileName: string, wasmData: Buffer, metada
   
   // Prepare template variables
   const uiElements = metadata.ui[0]?.items || [];
-  const initialParams = uiElements.map((item: any) => ({ address: item.address, init: item.init }));
-  const testParams = uiElements.map((item: any) => ({ address: item.address, init: item.init }));
-  const debugParams = uiElements.map((item: any) => ({ address: item.address, init: item.init }));
   
   // Replace template placeholders
   const replacements = {
     '{{fileName}}': fileName,
-    '{{version}}': metadata.version,
-    '{{inputs}}': metadata.inputs,
-    '{{outputs}}': metadata.outputs,
-    '{{compileOptions}}': metadata.compile_options,
-    '{{libraryList}}': metadata.library_list.join(', '),
-    '{{uiElementCount}}': uiElements.length.toString(),
+    '{{metadata}}': JSON.stringify(metadata),
     '{{wasmBase64}}': wasmBase64,
-    '{{uiElements}}': JSON.stringify(uiElements),
-    '{{initialParams}}': JSON.stringify(initialParams),
-    '{{testParams}}': JSON.stringify(testParams),
-    '{{debugParams}}': JSON.stringify(debugParams),
-    '{{numInputs}}': metadata.inputs.toString(),
-    '{{numOutputs}}': metadata.outputs.toString()
   };
   
   // Apply replacements

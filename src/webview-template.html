@@ -137,10 +137,10 @@
 
     <div class="info-panel">
         <h3>DSP Information</h3>
-        <p><strong>Compilation options:</strong> {{compileOptions}}</p>
-        <p><strong>Library list:</strong> {{libraryList}}</p>
-        <p><strong>Sample rate:</strong> Variable (set by Web Audio API)</p>
-        <p><strong>UI Elements:</strong> {{uiElementCount}} controls</p>
+        <p><strong>Compilation options:</strong><span id="compileOptions"></span></p>
+        <p><strong>Library list:</strong><span id="libraryList"></span></p>
+        <p><strong>Sample rate:</strong><span id="sampleRate"></span></p>
+        <p><strong>UI Elements:</strong><span id="uiElementCount"></span></p>
     </div>
 
     <!-- Load faust-ui from CDN -->
@@ -154,6 +154,14 @@
         let faustUI;
         let isRunning = false;
         let dspInstance;
+
+        const metadata = {{metadata}};
+        console.log('DSP Metadata:', metadata);
+        // Update info panel
+        document.getElementById('compileOptions').textContent = ' ' + metadata.compile_options;
+        document.getElementById('libraryList').textContent = ' ' + metadata.library_list.join(', ');
+        document.getElementById('uiElementCount').textContent = ' ' + metadata.ui.length;
+        const initialParams = metadata.ui.map(item => ({ address: item.address, init: item.init }));
 
         // Create memory that will be shared with the WASM module
         const memory = new WebAssembly.Memory({ initial: 256 });
@@ -213,11 +221,11 @@
         // Initialize FaustUI
         function initFaustUI() {
             const uiRoot = document.getElementById('faust-ui-root');
-            
+
             // Create FaustUI instance
             faustUI = new FaustUI.FaustUI({
                 root: uiRoot,
-                ui: {{uiElements}},
+                ui: metadata.ui,
                 listenWindowResize: true,
                 listenWindowMessage: false
             });
@@ -225,10 +233,19 @@
             // Override paramChangeByUI to handle parameter changes
             faustUI.paramChangeByUI = (path, value) => {
                 console.log('Parameter change:', path, value);
+                // Get the index of the path from the list of UI elements
+                let newValue;
+
+
                 if (dspInstance && dspInstance.setParamValue) {
                     try {
                         dspInstance.setParamValue(path, value);
-                        console.log('Parameter set successfully:', path, '=', value);
+                        newValue = dspInstance.getParamValue(path);
+                        if (newValue !== value) {
+                            console.warn(`Parameter ${path} set to ${value}, but DSP returned ${newValue}`);
+                        } else {
+                            console.log('Parameter set successfully:', path, '=', newValue);
+                        }
                     } catch (error) {
                         console.error('Error setting parameter:', error);
                     }
@@ -253,38 +270,27 @@
                     console.log('DSP initialized with sample rate:', audioContext.sampleRate);
                 }
                 
-                // Initialize DSP instance and constants
-                if (dspInstance.instanceInit) {
-                    dspInstance.instanceInit(audioContext.sampleRate);
-                    console.log('DSP instance initialized');
-                }
-                
-                if (dspInstance.instanceConstants) {
-                    dspInstance.instanceConstants(audioContext.sampleRate);
-                    console.log('DSP constants initialized');
-                }
-                
-                // Clear the DSP instance
-                if (dspInstance.instanceClear) {
-                    dspInstance.instanceClear();
-                    console.log('DSP instance cleared');
-                }
-                
                 // Reset UI to initial values
                 if (dspInstance.instanceResetUserInterface) {
                     dspInstance.instanceResetUserInterface();
                     console.log('DSP UI reset');
                 }
+                // Print initial param values
+                for (let i = 0; i < metadata.ui.length; i++) {
+                    if (dspInstance.getParamValue) {
+                        const val = dspInstance.getParamValue(i);
+                        console.log('Initial parameter', i, 'value:', val);
+                    }
+                }
                 
                 // Set initial parameter values from metadata
-                const initialParams = {{initialParams}};
                 console.log('Setting initial parameter values:', initialParams);
-                initialParams.forEach(param => {
-                    if (dspInstance.setParamValue) {
-                        dspInstance.setParamValue(param.address, param.init);
+                initialParams.forEach((param, index) => {
+                    if (dspInstance.setParamValue && param.init !== undefined) {
+                        dspInstance.setParamValue(index, param.init);
                         console.log('Set parameter', param.address, 'to', param.init);
                         // Verify the parameter was set
-                        const actualValue = dspInstance.getParamValue(param.address);
+                        const actualValue = dspInstance.getParamValue(index);
                         console.log('Verified parameter', param.address, 'is now', actualValue);
                     }
                 });
@@ -303,8 +309,8 @@
                 console.log('- Num Outputs:', dspInstance.getNumOutputs ? dspInstance.getNumOutputs() : 'N/A');
                 
                 // Test parameter access
-                const testParams = {{testParams}};
-                testParams.forEach(param => {
+                dspInstance.instanceResetUserInterface();
+                initialParams.forEach(param => {
                     if (dspInstance.getParamValue) {
                         const currentValue = dspInstance.getParamValue(param.address);
                         console.log('Parameter', param.address, 'current value:', currentValue, 'expected:', param.init);
@@ -312,8 +318,8 @@
                 });
                 
                 const bufferSize = 1024;
-                const numInputs = {{numInputs}};
-                const numOutputs = {{numOutputs}};
+                const numInputs = metadata.inputs;
+                const numOutputs = metadata.outputs;
                 
                 console.log('DSP configuration:', { numInputs, numOutputs, bufferSize });
                 
@@ -357,69 +363,111 @@
                 statusDiv.textContent = 'Setting up audio processing...';
                 console.log('Setting up audio processing for DSP with', numInputs, 'inputs and', numOutputs, 'outputs');
                 
-                // Create audio processor using ScriptProcessorNode
-                // For 0-input DSPs, we still need at least 1 input for the ScriptProcessorNode
-                const processorInputs = Math.max(1, numInputs);
-                faustProcessor = audioContext.createScriptProcessor(bufferSize, processorInputs, numOutputs);
-                
-                let processCount = 0;
-                
-                // Set up audio processing
-                faustProcessor.onaudioprocess = function(event) {
-                    const inputBuffer = event.inputBuffer;
-                    const outputBuffer = event.outputBuffer;
-                    
-                    try {
-                        // Copy input data to WASM memory (only if DSP has inputs)
-                        if (numInputs > 0) {
-                            for (let channel = 0; channel < numInputs; channel++) {
-                                const inputData = inputBuffer.getChannelData(channel);
-                                const offset = (inputBufferOffset / 4) + (channel * bufferSize);
-                                memoryView.set(inputData, offset);
+                        // Create audio processor using AudioWorkletNode
+                        try {
+                            const workletCode = `
+                            class FaustProcessor extends AudioWorkletProcessor {
+                                constructor() {
+                                    super();
+                                    this.queue = [];
+                                    this.port.onmessage = (e) => {
+                                        if (e.data && e.data.type === 'audio' && Array.isArray(e.data.buffers)) {
+                                            this.queue.push(e.data.buffers);
+                                        }
+                                    };
+                                }
+
+                                process(inputs, outputs) {
+                                    const output = outputs[0];
+                                    const frames = output[0].length;
+
+                                    const buffers = this.queue.shift();
+                                    if (buffers) {
+                                        for (let ch = 0; ch < output.length; ch++) {
+                                            const out = output[ch];
+                                            const src = buffers[ch];
+                                            if (src) {
+                                                for (let i = 0; i < frames; i++) out[i] = src[i] || 0;
+                                            } else {
+                                                out.fill(0);
+                                            }
+                                        }
+                                    } else {
+                                        for (let ch = 0; ch < output.length; ch++) output[ch].fill(0);
+                                    }
+                                    return true;
+                                }
                             }
-                        } else {
-                            // For 0-input DSPs, clear the input buffer to ensure clean state
-                            const offset = (inputBufferOffset / 4);
-                            memoryView.fill(0, offset, offset + bufferSize);
-                        }
-                        
-                        // Call the DSP compute function with pointer arrays
-                        if (dspInstance.compute) {
-                            dspInstance.compute(bufferSize, inputPtrOffset, outputPtrOffset);
-                        }
-                        
-                        // Copy output data from WASM memory
-                        for (let channel = 0; channel < numOutputs; channel++) {
-                            const outputData = outputBuffer.getChannelData(channel);
-                            const offset = (outputBufferOffset / 4) + (channel * bufferSize);
-                            const wasmOutput = memoryView.subarray(offset, offset + bufferSize);
-                            outputData.set(wasmOutput);
-                        }
-                        
-                        // Debug output every 100 process cycles
-                        if (processCount % 100 === 0) {
-                            console.log('DSP processing cycle', processCount, '- using compiled WebAssembly DSP, not test tone');
-                            if (numInputs === 0) {
-                                // For 0-input DSPs, show output level to verify it's working
-                                const outputData = outputBuffer.getChannelData(0);
-                                const rms = Math.sqrt(outputData.reduce((sum, val) => sum + val * val, 0) / outputData.length);
-                                console.log('Output RMS level:', rms.toFixed(6));
+
+                            registerProcessor('faust-processor', FaustProcessor);
+                            `;
+
+                            const blob = new Blob([workletCode], { type: 'application/javascript' });
+                            const moduleUrl = URL.createObjectURL(blob);
+                            await audioContext.audioWorklet.addModule(moduleUrl);
+
+                            faustNode = new AudioWorkletNode(audioContext, 'faust-processor', {
+                                numberOfInputs: 0,
+                                numberOfOutputs: numOutputs,
+                                outputChannelCount: new Array(numOutputs).fill(1)
+                            });
+
+                            faustNode.connect(audioContext.destination);
+
+                            let processCount = 0;
+                            let processTimer = null;
+
+                            // Processing function: call WASM compute and post outputs to the worklet
+                            function computeAndPost() {
+                                try {
+                                    // For DSPs with inputs, input copying would need to happen here (not implemented)
+
+                                    // Call the DSP compute function with pointer arrays
+                                    if (dspInstance.compute) {
+                                        dspInstance.compute(bufferSize, inputPtrOffset, outputPtrOffset);
+                                    }
+
+                                    // Read output data from WASM memory and post to worklet
+                                    const buffers = [];
+                                    for (let channel = 0; channel < numOutputs; channel++) {
+                                        const wasmOffset = (outputBufferOffset / 4) + (channel * bufferSize);
+                                        const wasmOutput = memoryView.subarray(wasmOffset, wasmOffset + bufferSize);
+                                        const outBuf = new Float32Array(bufferSize);
+                                        outBuf.set(wasmOutput);
+                                        buffers.push(outBuf);
+                                    }
+
+                                    // Transfer the underlying ArrayBuffer to minimize copying
+                                    faustNode.port.postMessage({ type: 'audio', buffers: buffers }, buffers.map(b => b.buffer));
+
+                                    if (processCount % 100 === 0) {
+                                        console.log('DSP processing cycle', processCount, '- using compiled WebAssembly DSP via AudioWorkletNode');
+                                        if (numInputs === 0 && buffers[0]) {
+                                            const out = buffers[0];
+                                            const rms = Math.sqrt(out.reduce((sum, val) => sum + val * val, 0) / out.length);
+                                            console.log('Output RMS level:', rms.toFixed(6));
+                                        }
+                                    }
+                                    processCount++;
+                                } catch (e) {
+                                    console.error('Audio processing error:', e);
+                                }
                             }
+
+                            // Schedule periodic processing aligned to buffer size
+                            const intervalMs = (bufferSize / audioContext.sampleRate) * 1000;
+                            processTimer = setInterval(computeAndPost, Math.max(1, intervalMs));
+
+                            // Store timer so stopAudio can clear it
+                            window._faustProcessTimer = processTimer;
+
+                            statusDiv.textContent = 'Audio system ready - DSP WebAssembly loaded';
+                            statusDiv.className = 'status success';
+                        } catch (err) {
+                            statusDiv.textContent = 'Error setting up AudioWorklet: ' + err.message;
+                            statusDiv.className = 'status error';
+                            console.error('AudioWorklet setup error:', err);
                         }
-                        processCount++;
-                        
-                    } catch (e) {
-                        console.error('Audio processing error:', e);
-                        // Fallback: silence the output
-                        for (let channel = 0; channel < numOutputs; channel++) {
-                            const outputData = outputBuffer.getChannelData(channel);
-                            outputData.fill(0);
-                        }
-                    }
-                };
-                
-                statusDiv.textContent = 'Audio system ready - DSP WebAssembly loaded';
-                statusDiv.className = 'status success';
             } catch (error) {
                 statusDiv.textContent = 'Error: ' + error.message;
                 statusDiv.className = 'status error';
@@ -439,12 +487,11 @@
                 await audioContext.resume();
             }
             
-            if (faustProcessor) {
-                faustProcessor.connect(audioContext.destination);
-                console.log('Audio processor connected to destination');
+            if (faustNode) {
+                try { faustNode.connect(audioContext.destination); } catch (e) { /* ignore */ }
+                console.log('AudioWorkletNode connected to destination');
                 console.log('AudioContext state:', audioContext.state);
                 console.log('AudioContext sample rate:', audioContext.sampleRate);
-                console.log('Processor buffer size:', faustProcessor.bufferSize);
             }
             
             isRunning = true;
@@ -454,9 +501,9 @@
             statusDiv.className = 'status success';
             
             // Log current parameter values for debugging
+            dspInstance.instanceResetUserInterface();
             console.log('Current DSP parameters at start:');
-            const params = {{debugParams}};
-            params.forEach(param => {
+            initialParams.forEach(param => {
                 if (dspInstance && dspInstance.getParamValue) {
                     const currentValue = dspInstance.getParamValue(param.address);
                     console.log(`- ${param.address}: ${currentValue}`);
@@ -466,8 +513,13 @@
 
         // Stop audio processing
         function stopAudio() {
-            if (faustProcessor) {
-                faustProcessor.disconnect();
+            if (faustNode) {
+                try { faustNode.disconnect(); } catch (e) { /* ignore */ }
+                const t = window._faustProcessTimer;
+                if (t) {
+                    clearInterval(t);
+                    window._faustProcessTimer = null;
+                }
             }
             isRunning = false;
             startBtn.disabled = false;
